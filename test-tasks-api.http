@@ -1,0 +1,63 @@
+# AI contribution note: Codex wrote all requests in this file.
+# [AI: Codex] BEGIN task API test cases
+# Run in order against a freshly started app. Users 1 and 2 must exist.
+@baseUrl = http://localhost:8000
+
+### 1. GET all tasks — expected: 200 with tasks array
+GET {{baseUrl}}/tasks
+Accept: application/json
+
+### 2. GET a single task — expected: 200 with task object
+GET {{baseUrl}}/tasks/1
+Accept: application/json
+
+### 3. GET a nonexistent task — expected: 404
+GET {{baseUrl}}/tasks/999999
+
+### 4. POST a new task — expected: 201 with created task
+# @name createTask
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Complete Assignment 1",
+  "description": "Extend the REST API with tasks",
+  "user_id": 1,
+  "completed": false
+}
+
+### 5. POST with missing title — expected: 400
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "description": "Missing title",
+  "user_id": 1
+}
+
+### 6. POST with nonexistent user_id — expected: 400
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Invalid owner",
+  "user_id": 999999
+}
+
+### 7. PUT update the task from case 4 — expected: 200 with updated task
+PUT {{baseUrl}}/tasks/{{createTask.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "title": "Complete Assignment 1 Updated",
+  "completed": true
+}
+
+### 8. DELETE the task from case 4 — expected: 204
+DELETE {{baseUrl}}/tasks/{{createTask.response.body.$.id}}
+
+### 9. GET tasks for user 1 — expected: 200 with only user 1's tasks
+GET {{baseUrl}}/users/1/tasks
+Accept: application/json
+
+# [AI: Codex] END task API test cases

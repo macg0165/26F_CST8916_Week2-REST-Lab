@@ -1,3 +1,8 @@
+# AI contribution note: Codex changes are tagged [AI: Codex].
+# Codex wrote the task routes, task ID counter, and user_id support.
+# Task seed data is user-provided.
+# Tag future AI additions and edits using the same comment marker.
+
 # Import necessary modules from Flask
 # Flask: the core framework for the web app
 # jsonify: to convert Python dictionaries to JSON responses
@@ -97,6 +102,92 @@ def delete_user(user_id):
     # Rebuild the users list, excluding the user with the specified ID
     users = [user for user in users if user['id'] != user_id]
     return '', 204  # 204 is the HTTP status code for 'No Content', indicating the deletion was successful
+
+
+
+# In-memory task storage and the next task ID.
+tasks = [
+    {"id": 1, "title": "Learn REST", "description": "Study REST principles", "user_id": 1, "completed": True},
+    {"id": 2, "title": "Build API", "description": "Complete the assignment", "user_id": 2, "completed": False},
+]
+# [AI: Codex] Start after the highest seed ID to avoid duplicate task IDs.
+next_task_id = max((task['id'] for task in tasks), default=0) + 1
+
+
+# [AI: Codex] BEGIN task routes (GET/POST collection; GET/PUT/DELETE detail)
+@app.route('/tasks', methods=['GET', 'POST'])
+def task_collection():
+    global next_task_id
+    if request.method == 'GET':
+        return jsonify(tasks), 200
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('title'), str) or not data['title'].strip():
+        abort(400)
+    if 'description' in data and not isinstance(data['description'], str):
+        abort(400)
+    # [AI: Codex] Require a positive integer user_id when creating a task.
+    if type(data.get('user_id')) is not int or data['user_id'] < 1:
+        abort(400)
+    # [AI: Codex] Tasks must belong to an existing user.
+    if not any(user['id'] == data['user_id'] for user in users):
+        abort(400)
+    if 'completed' in data and not isinstance(data['completed'], bool):
+        abort(400)
+
+    task = {
+        'id': next_task_id,
+        'title': data['title'],
+        'description': data.get('description', ''),
+        'user_id': data['user_id'],  # [AI: Codex] Store the supplied user ID.
+        'completed': data.get('completed', False),
+    }
+    next_task_id += 1
+    tasks.append(task)
+    return jsonify(task), 201
+
+
+@app.route('/tasks/<int:task_id>', methods=['GET', 'PUT', 'DELETE'])
+def task_detail(task_id):
+    task = next((task for task in tasks if task['id'] == task_id), None)
+    if task is None:
+        abort(404)
+
+    if request.method == 'GET':
+        return jsonify(task), 200
+    if request.method == 'DELETE':
+        tasks.remove(task)
+        return '', 204
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data:
+        abort(400)
+    if 'title' in data and (not isinstance(data['title'], str) or not data['title'].strip()):
+        abort(400)
+    if 'description' in data and not isinstance(data['description'], str):
+        abort(400)
+    # [AI: Codex] Validate user_id when an update includes it.
+    if 'user_id' in data and (type(data['user_id']) is not int or data['user_id'] < 1):
+        abort(400)
+    # [AI: Codex] Validate the new owner before changing the task.
+    if 'user_id' in data and not any(user['id'] == data['user_id'] for user in users):
+        abort(400)
+    if 'completed' in data and not isinstance(data['completed'], bool):
+        abort(400)
+
+    # [AI: Codex] Added user_id to the fields that can be updated.
+    for field in ('title', 'description', 'user_id', 'completed'):
+        if field in data:
+            task[field] = data[field]
+    return jsonify(task), 200
+# [AI: Codex] Retrieve the tasks belonging to a specific user.
+@app.route('/users/<int:user_id>/tasks', methods=['GET'])
+def get_user_tasks(user_id):
+    if not any(user['id'] == user_id for user in users):
+        abort(404)
+    return jsonify([task for task in tasks if task['user_id'] == user_id]), 200
+# [AI: Codex] END task routes
+
 
 # Entry point for running the Flask app
 # The app will run on host 0.0.0.0 (accessible on all network interfaces) and port 8000.
